@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "core-engine",
+    "gui"
+]
+resolver = "2"
