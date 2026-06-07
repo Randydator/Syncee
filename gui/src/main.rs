@@ -2,37 +2,45 @@ mod tray;
 
 use core_engine::CoreBackend;
 use core_engine::event::{CoreCommand, CoreEvent};
-use iced::Event;
+use iced::futures::StreamExt;
 use iced::widget::{center, text};
 use iced::{Subscription, Task};
+use tokio_stream::wrappers::ReceiverStream;
 use tray_icon::TrayIconEvent;
-use tray_icon::menu::MenuEvent;
+use tray_icon::menu::MenuEvent; // Required to use .map() on stream
+
+fn open_window() -> Task<Message> {
+    let (_id, open_task) = iced::window::open(iced::window::Settings {
+        size: iced::Size::new(600.0, 400.0),
+        ..Default::default()
+    });
+    
+    open_task.discard() // destroy open task since we don't need to use the returning window id for anything
+}
 
 fn tray_native_stream() -> impl iced::futures::Stream<Item = Message> {
-    // 1. Use an unbounded channel.
     // This gives us an 'UnboundedSender', which doesn't require mutable access to send data!
-    let (tx, rx) = iced::futures::channel::mpsc::unbounded::<Message>();
+    let (transmitter, receiver) = iced::futures::channel::mpsc::unbounded::<Message>();
 
-    let tray_tx = tx.clone();
-    let menu_tx = tx;
+    let tray_transmitter = transmitter.clone();
+    let menu_transmitter = transmitter;
 
-    // 2. Pass the handler. Because tx can be used immutably, this remains a pure `Fn` closure.
+    // move so that the transmitter don't get destroyed when this function ends, and .unbounded_send() works on a plain &tx, keeping the closures compliant
     TrayIconEvent::set_event_handler(Some(move |event| {
         // .unbounded_send() works on a plain &tx, keeping the closure compliant!
-        let _ = tray_tx.unbounded_send(Message::TrayInteraction(event));
+        let _ = tray_transmitter.unbounded_send(Message::TrayInteraction(event));
     }));
 
     MenuEvent::set_event_handler(Some(move |event| {
         // .unbounded_send() works on a plain &tx, keeping the closure compliant!
-        let _ = menu_tx.unbounded_send(Message::MenuInteraction(event));
+        let _ = menu_transmitter.unbounded_send(Message::MenuInteraction(event));
     }));
 
     // 3. Return the receiver straight to Iced
-    rx
+    receiver
 }
 
-#[tokio::main]
-pub async fn main() -> iced::Result {
+pub fn main() -> iced::Result {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     log::info!("Starting Syncee App with Iced Framework...");
 
@@ -59,16 +67,21 @@ enum Message {
 
 impl SynceeApp {
     fn new() -> (Self, Task<Message>) {
-        // 1. Set up the workspace messaging channels
+        // setup communication channels; mpsc = multi-producer, single-consumer
         let (to_core, from_ui) = tokio::sync::mpsc::channel::<CoreCommand>(32);
         let (to_ui, from_core) = tokio::sync::mpsc::channel::<CoreEvent>(32);
 
-        // 2. Spin up the backend worker task using Iced's shared Tokio runtime context
         let engine = CoreBackend::new(from_ui, to_ui);
         tokio::spawn(engine.run());
 
-        // 3. Render the native system tray icon
         let tray_assets = tray::setup_tray_menu();
+
+        let backend_stream = ReceiverStream::new(from_core).map(Message::BackendEvent);
+
+        let listen_to_backend = Task::run(
+            backend_stream,
+            |message| message, // passes message straight to update()
+        );
 
         (
             Self {
@@ -76,13 +89,11 @@ impl SynceeApp {
                 tray_assets,
                 last_backend_log: String::from("Waiting for backend events..."),
             },
-            Task::none(),
+            listen_to_backend,
         )
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        // This is all you need! It passes your clean, event-driven stream constructor
-        // straight to Iced without any mismatched closure arguments.
         Subscription::run(tray_native_stream)
     }
 
@@ -106,8 +117,10 @@ impl SynceeApp {
             }
             Message::MenuInteraction(event) => {
                 if event.id == self.tray_assets.show_ui_id {
-                    log::info!("Iced Loop: 'Open Configuration' menu item clicked.");
-                    let _ = self.to_core.try_send(CoreCommand::OpenUI);
+                    log::info!(
+                        "Iced Loop: 'Show UI' menu item clicked. Opening winow"
+                    );
+                    return open_window();
                 } else if event.id == self.tray_assets.quit_id {
                     log::info!(
                         "Iced Loop: 'Quit Application' menu item clicked. Sending shutdown command to core."
@@ -125,8 +138,8 @@ impl SynceeApp {
         Task::none()
     }
 
-    fn view(&self, _window_id: iced::window::Id) -> iced::Element<Message> {
-        // A minimal text display layout inside your window
+    // 'a is the lifetime of the returned Element, which is tied to the lifetime of self. element doesn't have static time to live, it is linked to self
+    fn view<'a>(&'a self, _window_id: iced::window::Id) -> iced::Element<'a, Message> {
         center(text(format!("Syncee Utility Running\n{}", self.last_backend_log)).size(20)).into()
     }
 }
