@@ -1,4 +1,6 @@
-#[derive(Debug, Clone)]
+use serde::{Serialize, Deserialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CoreEvent {
     JobStarted {
         name: String,
@@ -25,6 +27,7 @@ pub enum CoreEvent {
     },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CoreCommand {
     StartJob(String), // Job name
     StopJob(String),  // Job name

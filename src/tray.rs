@@ -10,7 +10,7 @@ pub struct SystemTrayAssets {
 }
 
 fn load_icon() -> Icon {
-    let icon_bytes = include_bytes!("../assets/syncee_icon.ico");
+    let icon_bytes = include_bytes!("assets/syncee_icon.ico");
 
     let image_buffer = image::load_from_memory_with_format(icon_bytes, image::ImageFormat::Ico)
         .expect("Failed to decode embedded .ico file")

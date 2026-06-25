@@ -36,7 +36,6 @@ fn tray_native_stream() -> impl iced::futures::Stream<Item = Message> {
         let _ = menu_transmitter.unbounded_send(Message::MenuInteraction(event));
     }));
 
-    // 3. Return the receiver straight to Iced
     receiver
 }
 
@@ -47,7 +46,7 @@ pub fn main() -> iced::Result {
     iced::daemon(SynceeApp::new, SynceeApp::update, SynceeApp::view)
         .title("Syncee")
         .subscription(SynceeApp::subscription)
-        .run() // <-- Merged run execution
+        .run()
 }
 
 struct SynceeApp {

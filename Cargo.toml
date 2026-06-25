@@ -1,6 +1,26 @@
-[workspace]
-members = [
-    "core-engine",
-    "gui"
-]
-resolver = "2"
+[package]
+name = "syncee"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+
+log = "0.4"
+env_logger = "0.11"
+
+interprocess = { version = "2.2", features = ["tokio"] }
+serde = { version = "1.0", features = ["derive"] }
+bincode = "1.3"
+
+walkdir = "2.5"
+
+
+tray-icon = "0.19"
+image = { version = "0.25", default-features = false, features = ["ico", "png"] }
+
+crossbeam-channel = "0.5"
+iced = "0.14.0"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_UI_WindowsAndMessaging", "Win32_System_Threading"] }

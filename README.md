@@ -2,6 +2,8 @@
 My proper re-write of a tool I vibe-coded before. Is used to automatically keep folders in sync and generate playlist out of MusicBee Folders.
 
 # Run
-cargo run --package gui
+For development: cargo run
 
-cargo build --release -p gui
+Build production: cargo build --release
+
+Testing GUI: cargo run -- --mode=gui
