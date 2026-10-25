@@ -6,8 +6,8 @@ use tokio::io::AsyncWriteExt;
 
 pub fn run_gui() -> iced::Result {
     // Create a temporary tokio runtime context for the GUI process
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    let _guard = rt.enter(); // This registers the Tokio reactor on this thread!
+    let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
+    let _guard = tokio_runtime.enter(); // This registers the Tokio reactor on this thread!
 
     // 1. Boot function: Returns the default starting state
     // 2. Update function: Handles state modifications
@@ -82,16 +82,26 @@ impl SynceeGui {
     }
 }
 
+// ICED update is a sync process. Task::perform is the way to make async tasks.
+// They will run in the background, then come as a message to GUI in another update loop.
+// Because I want to connect once to the backend and then have a persistent connection (not connect per message)
+// We here need to spawn a new tokio task to always run in the background with the GUI, which handles backend communication without reconnect
 async fn connect_to_daemon() -> Result<tokio::sync::mpsc::Sender<CoreCommand>, std::io::Error> {
-    // Standard interprocess namespace matching your daemon's address
-    let name = "syncee_ipc_pipe".to_ns_name::<GenericNamespaced>()?;
-    let stream = Stream::connect(name).await?;
+    // Try to connect to tokio runtime IPC pipe using name for backend communication. Namespaced needed to handle cross-plattform socket names.
+    let name = "syncee_ipc_pipe"
+        .to_ns_name::<GenericNamespaced>()
+        .inspect_err(|e| {
+            log::error!("Invalid name for IPC Pipe. Backend connection failed: {e}")
+        })?;
+
+    let stream = Stream::connect(name)
+        .await
+        .inspect_err(|e| log::error!("GUI connection to backend failed: {e}"))?;
+
     let (mut reader, mut writer) = stream.split();
 
-    // Create an internal memory channel to pipe commands from the UI thread down to this socket worker
+    // Create always running tokio channel that is connected to backend for communication
     let (tx, mut rx) = tokio::sync::mpsc::channel::<CoreCommand>(32);
-
-    // Spawn a dedicated writer loop
     tokio::spawn(async move {
         while let Some(command) = rx.recv().await {
             // Serialize your type-safe Enum into raw binary bytes
@@ -105,5 +115,6 @@ async fn connect_to_daemon() -> Result<tokio::sync::mpsc::Sender<CoreCommand>, s
         }
     });
 
+    // Return transmitter so UI can use this to send messages to backend
     Ok(tx)
 }

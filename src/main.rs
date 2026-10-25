@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // No terminal for windows release builds
 
 mod tray;
+use crossbeam_channel::select;
 use syncee::CoreBackend;
 use syncee::event::{CoreCommand, CoreEvent};
 use tray_icon::{TrayIconEvent, menu::MenuEvent};
@@ -52,8 +53,6 @@ fn handle_tray_events(
     menu_receiver: crossbeam_channel::Receiver<MenuEvent>,
     tray_ids: ThreadSafeTrayIds,
 ) {
-    use crossbeam_channel::select;
-
     loop {
         select! {
             recv(tray_receiver) -> tray_message => {
