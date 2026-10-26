@@ -1,5 +1,6 @@
+pub mod constants;
 pub mod event;
-pub mod gui;
+pub mod ui;
 
 use event::CoreCommand;
 use interprocess::local_socket::{
@@ -21,20 +22,16 @@ impl CoreBackend {
     pub async fn run(self) -> io::Result<()> {
         log::info!("Background sync engine worker is up and running...");
 
-        let pipe_name = "syncee_ipc_pipe";
-
-        // Convert the string slice into a cross-platform namespace identifier
-        let name = pipe_name
+        // Namespaced for cross-plattform socket name handling
+        let name = constants::PIPE_NAME
             .to_ns_name::<GenericNamespaced>()
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
-        // Bind the native async socket listener using the v2 Builder pattern
         let listener = ListenerOptions::new().name(name).create_tokio()?;
-
-        log::info!("IPC Listener bound to name: {}", pipe_name);
+        log::info!("IPC Listener bound to name: {}", constants::PIPE_NAME);
 
         loop {
-            // Blocks asynchronously until the GUI starts up and dials in
+            // awaits for anything to connect to the socket
             match listener.accept().await {
                 Ok(stream) => {
                     log::info!("GUI client connected! Starting IPC handler loop...");
@@ -54,8 +51,8 @@ impl CoreBackend {
     }
 
     async fn handle_client(stream: interprocess::local_socket::tokio::Stream) -> io::Result<()> {
-        // split() is the v2 method to separate the bi-directional stream
         let (mut reader, _writer) = stream.split();
+        // block 1024 bytes of memory (initialized as 0s)
         let mut buffer = vec![0u8; 1024];
 
         loop {
@@ -68,18 +65,14 @@ impl CoreBackend {
             if let Ok(cmd) = bincode::deserialize::<CoreCommand>(&buffer[..bytes_read]) {
                 match cmd {
                     CoreCommand::OpenUI => {
-                        log::info!(
-                            "Core Engine via IPC: Received OpenUi. Preparing background state..."
-                        );
+                        log::info!("Received OpenUI");
                     }
                     CoreCommand::Shutdown => {
-                        log::info!(
-                            "Core Engine via IPC: Shutting down backend processes cleanly..."
-                        );
+                        log::info!("Shutting down Backend. Bye byeee");
                         std::process::exit(0);
                     }
                     _ => {
-                        log::info!("Core Engine via IPC: Received command: {:?}", cmd);
+                        log::info!("Unknown command received: {:?}", cmd);
                     }
                 }
             }

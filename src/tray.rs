@@ -1,6 +1,6 @@
 use tray_icon::{
-    Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
-    menu::{Menu, MenuEvent, MenuItem, MenuItemBuilder},
+    Icon, TrayIcon, TrayIconBuilder,
+    menu::{Menu, MenuItemBuilder},
 };
 
 pub struct SystemTrayAssets {

@@ -3,7 +3,7 @@
 mod tray;
 use crossbeam_channel::select;
 use syncee::CoreBackend;
-use syncee::event::{CoreCommand, CoreEvent};
+use syncee::ui::gui;
 use tray_icon::{TrayIconEvent, menu::MenuEvent};
 
 fn handle_gui_mode_if_set() -> bool {
@@ -11,7 +11,7 @@ fn handle_gui_mode_if_set() -> bool {
     if args.len() > 1 && args[1] == "--mode=gui" {
         log::info!("Syncee: GUI flag detected. Booting GUI...");
 
-        if let Err(e) = syncee::gui::run_gui() {
+        if let Err(e) = gui::run_gui() {
             log::error!("GUI process context exited with error: {}", e);
         }
 

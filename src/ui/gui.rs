@@ -1,7 +1,10 @@
+use super::list;
+use crate::constants;
 use crate::event::CoreCommand;
-use iced::widget::{Column, button, column, text};
+use iced::widget::{button, column, text};
 use iced::{Element, Task};
 use interprocess::local_socket::{GenericNamespaced, ToNsName, tokio::Stream, tokio::prelude::*};
+use std::io;
 use tokio::io::AsyncWriteExt;
 
 pub fn run_gui() -> iced::Result {
@@ -9,9 +12,6 @@ pub fn run_gui() -> iced::Result {
     let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
     let _guard = tokio_runtime.enter(); // This registers the Tokio reactor on this thread!
 
-    // 1. Boot function: Returns the default starting state
-    // 2. Update function: Handles state modifications
-    // 3. View function: Builds the visual layout
     iced::application(SynceeGui::default, SynceeGui::update, SynceeGui::view)
         .title("Syncee Control Panel")
         .run()
@@ -23,13 +23,16 @@ struct SynceeGui {
 }
 
 #[derive(Debug, Clone)]
-enum GuiMessage {
+pub enum GuiMessage {
     Connected(tokio::sync::mpsc::Sender<CoreCommand>),
     ConnectionFailed(String),
     SendOpenUI,
     SendShutdown,
 }
 
+// 1. Boot function: Returns the default starting state
+// 2. Update function: Handles state modifications
+// 3. View function: Builds the visual layout
 impl SynceeGui {
     fn default() -> (Self, Task<GuiMessage>) {
         let initial_state = Self { tx_to_daemon: None };
@@ -88,16 +91,15 @@ impl SynceeGui {
 // We here need to spawn a new tokio task to always run in the background with the GUI, which handles backend communication without reconnect
 async fn connect_to_daemon() -> Result<tokio::sync::mpsc::Sender<CoreCommand>, std::io::Error> {
     // Try to connect to tokio runtime IPC pipe using name for backend communication. Namespaced needed to handle cross-plattform socket names.
-    let name = "syncee_ipc_pipe"
+    let name = constants::PIPE_NAME
         .to_ns_name::<GenericNamespaced>()
-        .inspect_err(|e| {
-            log::error!("Invalid name for IPC Pipe. Backend connection failed: {e}")
-        })?;
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
     let stream = Stream::connect(name)
         .await
         .inspect_err(|e| log::error!("GUI connection to backend failed: {e}"))?;
 
+    //Currently unused reader, as Backend to UI not implemented yet
     let (mut reader, mut writer) = stream.split();
 
     // Create always running tokio channel that is connected to backend for communication
