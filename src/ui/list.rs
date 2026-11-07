@@ -1,6 +1,5 @@
 use super::gui::GuiMessage;
 use crate::types::SyncConfig;
-use crate::ui::list;
 use iced::Alignment;
 use iced::Element;
 use iced::Font;
