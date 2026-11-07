@@ -1,5 +1,6 @@
 use super::gui::GuiMessage;
 use crate::types::SyncConfig;
+use crate::ui::list;
 use iced::Alignment;
 use iced::Element;
 use iced::Font;
@@ -23,7 +24,10 @@ pub fn draw_list_item(list_item: &SyncConfig) -> Element<'_, GuiMessage> {
         info_column.width(Length::Fill), // Takes up available space
         time_text,
         button("Sync Now")
-            .on_press(GuiMessage::SendLog(String::from("Pressed Sync Now in UI")))
+            .on_press(GuiMessage::SendLog(format!(
+                "Pressed Sync Now for: {}",
+                list_item.id
+            )))
             .padding(6)
     ]
     .spacing(15)
