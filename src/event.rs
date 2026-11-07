@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CoreEvent {
@@ -7,21 +7,21 @@ pub enum CoreEvent {
         timestamp: String,
         total_files: usize,
     },
-    
+
     ProgressUpdate {
         job_name: String,
         files_processed: usize,
         total_files: usize,
     },
-    
+
     TrackSyncError {
         job_name: String,
         file_path: String,
         error: String,
     },
 
-    JobFinished { 
-        name: String, 
+    JobFinished {
+        name: String,
         timestamp: String,
         failed_tracks: Vec<String>,
     },
@@ -33,5 +33,5 @@ pub enum CoreCommand {
     StopJob(String),  // Job name
     GetStatus,        // Request current status of all jobs
     OpenUI,
-    Shutdown
+    Shutdown,
 }

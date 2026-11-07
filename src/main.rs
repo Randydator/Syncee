@@ -2,8 +2,8 @@
 
 mod tray;
 use crossbeam_channel::select;
-use syncee::CoreBackend;
 use syncee::ui::gui;
+use syncee::{CoreBackend, utils::config};
 use tray_icon::{TrayIconEvent, menu::MenuEvent};
 
 fn handle_gui_mode_if_set() -> bool {
@@ -59,8 +59,8 @@ fn handle_tray_events(
                 if let Ok(event) = tray_message {
                     if let TrayIconEvent::Click { button, button_state, .. } = event {
                         if button == tray_icon::MouseButton::Left && button_state == tray_icon::MouseButtonState::Up {
-                            log::info!("Daemon: Tray left-clicked. Spawning GUI binary!");
-                            spawn_gui_process();
+                            log::info!("Daemon: Tray left-clicked");
+                            // spawn_gui_process();
                         }
                     }
                 }
@@ -114,6 +114,10 @@ fn main() {
     });
 
     spawn_tray_loop();
+
+    // For development
+    spawn_gui_process();
+    config::write_test_data();
 
     #[cfg(target_os = "windows")]
     unsafe {

@@ -1,7 +1,10 @@
 use super::list;
+use super::list::draw_list_ui;
 use crate::constants;
 use crate::event::CoreCommand;
-use iced::widget::{button, column, text};
+use crate::types::SyncConfig;
+use crate::utils::config;
+use iced::widget::{Column, button, column, text};
 use iced::{Element, Task};
 use interprocess::local_socket::{GenericNamespaced, ToNsName, tokio::Stream, tokio::prelude::*};
 use std::io;
@@ -17,9 +20,10 @@ pub fn run_gui() -> iced::Result {
         .run()
 }
 
-struct SynceeGui {
+pub struct SynceeGui {
     // We hold a crossbeam or tokio mpsc channel to ship messages out to a background connection worker thread
     tx_to_daemon: Option<tokio::sync::mpsc::Sender<CoreCommand>>,
+    sync_configs: Vec<SyncConfig>,
 }
 
 #[derive(Debug, Clone)]
@@ -28,6 +32,7 @@ pub enum GuiMessage {
     ConnectionFailed(String),
     SendOpenUI,
     SendShutdown,
+    SendLog(String),
 }
 
 // 1. Boot function: Returns the default starting state
@@ -35,7 +40,11 @@ pub enum GuiMessage {
 // 3. View function: Builds the visual layout
 impl SynceeGui {
     fn default() -> (Self, Task<GuiMessage>) {
-        let initial_state = Self { tx_to_daemon: None };
+        let initial_sync_configs = config::get_sync_configs();
+        let initial_state = Self {
+            tx_to_daemon: None,
+            sync_configs: initial_sync_configs,
+        };
 
         // Command Iced to run our async connector loop in the background immediately
         let connect_task = Task::perform(connect_to_daemon(), |result| match result {
@@ -65,24 +74,43 @@ impl SynceeGui {
                     let _ = tx.try_send(CoreCommand::Shutdown);
                 }
             }
+            GuiMessage::SendLog(log_message) => {
+                log::info!("{log_message}");
+            }
         }
     }
 
     fn view(&self) -> Element<GuiMessage> {
         column![
-            text("Syncee Control Panel").size(28),
-            text(if self.tx_to_daemon.is_some() {
-                "Status: Linked via IPC Pipe"
-            } else {
-                "Status: Disconnected"
-            }),
-            button("Send OpenUI Command").on_press(GuiMessage::SendOpenUI),
-            button("Kill Background Daemon").on_press(GuiMessage::SendShutdown),
+            draw_basic_ui(self),
+            draw_list_ui(
+                "Sync Configurations",
+                &self.sync_configs,
+                |config: &SyncConfig| { list::draw_list_item(config) },
+            )
         ]
-        .spacing(15)
+        .padding(15)
         .align_x(iced::Alignment::Center)
-        .into() // CRITICAL: Add .into() at the end to convert the Column to an Element
+        .into() // Add .into() at the end to convert the Column to an Element
     }
+
+    pub fn is_connected(&self) -> bool {
+        return self.tx_to_daemon.is_some();
+    }
+}
+
+pub fn draw_basic_ui(syncee_instance: &SynceeGui) -> Column<GuiMessage> {
+    column![
+        text("Syncee Control Panel").size(28),
+        text(if syncee_instance.is_connected() {
+            "Status: Linked via IPC Pipe"
+        } else {
+            "Status: Disconnected"
+        }),
+        button("Send OpenUI Command").on_press(GuiMessage::SendOpenUI),
+        button("Kill Background Daemon").on_press(GuiMessage::SendShutdown),
+    ]
+    .spacing(15)
 }
 
 // ICED update is a sync process. Task::perform is the way to make async tasks.

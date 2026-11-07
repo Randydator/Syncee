@@ -1,6 +1,8 @@
 pub mod constants;
 pub mod event;
+pub mod types;
 pub mod ui;
+pub mod utils;
 
 use event::CoreCommand;
 use interprocess::local_socket::{
