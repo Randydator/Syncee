@@ -4,7 +4,7 @@ use directories::ProjectDirs;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use uuid::Uuid;
+use uuid::uuid;
 
 fn get_config_file_path() -> Option<PathBuf> {
     // Qualifiers: "com", organization: "MyOrg", application: "MyCoolApp"
@@ -106,7 +106,7 @@ pub fn get_sync_configs() -> Vec<SyncConfig> {
 pub fn write_test_data() {
     // Create an instance of your SyncConfig struct with sample data
     let sample_config = SyncConfig {
-        id: Uuid::new_v4(),
+        id: uuid!("9254c298-2aa8-4c7b-bfdb-c776847a8887"),
         title: "My Sync Task".to_string(),
         description: "Synchronizing local directory with remote storage".to_string(),
         last_synced: Utc::now(),

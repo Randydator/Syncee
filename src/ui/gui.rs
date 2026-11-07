@@ -80,9 +80,9 @@ impl SynceeGui {
         }
     }
 
-    fn view(&self) -> Element<GuiMessage> {
+    fn view(&self) -> Element<'_, GuiMessage> {
         column![
-            draw_basic_ui(self),
+            self.draw_basic_ui(),
             draw_list_ui(
                 "Sync Configurations",
                 &self.sync_configs,
@@ -97,20 +97,20 @@ impl SynceeGui {
     pub fn is_connected(&self) -> bool {
         return self.tx_to_daemon.is_some();
     }
-}
 
-pub fn draw_basic_ui(syncee_instance: &SynceeGui) -> Column<GuiMessage> {
-    column![
-        text("Syncee Control Panel").size(28),
-        text(if syncee_instance.is_connected() {
-            "Status: Linked via IPC Pipe"
-        } else {
-            "Status: Disconnected"
-        }),
-        button("Send OpenUI Command").on_press(GuiMessage::SendOpenUI),
-        button("Kill Background Daemon").on_press(GuiMessage::SendShutdown),
-    ]
-    .spacing(15)
+    pub fn draw_basic_ui(&self) -> Column<'static, GuiMessage> {
+        column![
+            text("Syncee Control Panel").size(28),
+            text(if self.is_connected() {
+                "Status: Linked via IPC Pipe"
+            } else {
+                "Status: Disconnected"
+            }),
+            button("Send OpenUI Command").on_press(GuiMessage::SendOpenUI),
+            button("Kill Background Daemon").on_press(GuiMessage::SendShutdown),
+        ]
+        .spacing(15)
+    }
 }
 
 // ICED update is a sync process. Task::perform is the way to make async tasks.
